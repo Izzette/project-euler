@@ -11,12 +11,17 @@ euclid:
 	pushq	%rbp
 	movq	%rsp,	%rbp
 
+	subq	$24,	%rsp
+	movq	%rdx,	-8(%rbp)
+	movq	%rcx,	-16(%rbp)
+	movq	%rbx,	-24(%rbp)
+
 	# if (0 == a) {
 	cmpq	$0,	%rdi
 	jne	.LC0
 	#	return b;
 	movq	%rsi,	%rax
-	jmp	END
+	jmp	.LC10
 .LC0:	# }
 
 	# if (0 == b) {
@@ -24,30 +29,25 @@ euclid:
 	jne	.LC1
 	#	return a;
 	movq	%rdi,	%rax
-	jmp	END
+	jmp	.LC10
 .LC1:	# }
 
-	subq	$24,	%rsp
-	movq	%rdx,	-8(%rbp)
-	movq	%rcx,	-16(%rbp)
-	movq	%rbx,	-24(%rbp)
-
 	# uint64_t u = a;
-	movq	%rdi,	%rdx
+	movq	%rdi,	%rax
 	# uint64_t v = b;
 	movq	%rsi,	%rcx
 	# uint64_t i = 0;
-	movq	$0,	%rax
+	movq	$0,	%rdx
 
 	jmp	.LC3
 .LC2:	# {
 	#	u >>= 1;
-	shrq	$1,	%rdx
+	shrq	$1,	%rax
 	#	v >>= 1;
 	shrq	$1,	%rcx
-	incq	%rax
-.LC3:	# } while (0 == (1 & (u | v)));
-	movq	%rdx,	%rbx
+	incq	%rdx
+.LC3:	# } until (0 == (1 & (u | v)));
+	movq	%rax,	%rbx
 	orq	%rcx,	%rbx
 	andq	$1,	%rbx
 	cmpq	$0,	%rbx
@@ -56,9 +56,9 @@ euclid:
 	jmp	.LC5
 .LC4:	# {
 	#	u >>= 1;
-	shrq	$1,	%rdx
-.LC5:	# } while (0 == (1 & u));
-	movq	%rdx,	%rbx
+	shrq	$1,	%rax
+.LC5:	# } until (0 == (1 & u));
+	movq	%rax,	%rbx
 	andq	$1,	%rbx
 	cmpq	$0,	%rbx
 	je	.LC4
@@ -68,50 +68,41 @@ euclid:
 .LC7:	# {
 	# v >>= 1;
 	shrq	$1,	%rcx
-.LC8:	# } while (0 == (v & 1));
+.LC8:	# } until (0 == (v & 1));
 	movq	%rcx,	%rbx
 	andq	$1,	%rbx
 	cmpq	$0,	%rbx
 	je	.LC7
 
 	# if (u > v)
-	cmpq	%rdx,	%rcx
+	cmpq	%rax,	%rcx
 	jge	.LC9
 	# {
 	# t = u;
-	movq	%rdx,	%rbx
+	movq	%rax,	%rbx
 	# u = v;
-	movq	%rcx,	%rdx
+	movq	%rcx,	%rax
 	# v = t;
 	movq	%rbx,	%rcx
 .LC9:	# }
 
 	# v = v - u;
-	subq	%rdx,	%rcx
+	subq	%rax,	%rcx
 
-	# } while (0 != v);
+	# } until (0 != v);
 	cmpq	$0,	%rcx
 	jne	.LC6
 
-	jmp	.LC11
-.LC10:	# {
-	# u >>= 1;
-	shlq	$1,	%rdx
-	# --i;
-	decq	%rax
-.LC11:	# } while (0 < i);
-	cmpq	$0,	%rax
-	jg	.LC10
+	# __ret__ = u << i;
+	movb	%dl,	%cl
+	salq	%cl,	%rax
 
-	# return u;
-	movq	%rdx,	%rax
-
+.LC10:  # done
 	movq	-8(%rbp), %rdx
 	movq	-16(%rbp), %rcx
 	movq	-24(%rbp), %rbx
 	addq	$24,	%rsp
 
-END:
 	popq	%rbp
 	ret
 .LFE0:
